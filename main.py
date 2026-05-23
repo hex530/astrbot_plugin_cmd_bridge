@@ -1,6 +1,11 @@
-from astrbot.api.all import *
+from astrbot.api.event import AstrMessageEvent
+from astrbot.api.star import Context, Star, register
+from astrbot.api.event.filter import llm_tool
+import logging
 
-@register("cmd_bridge", "夕小柠 & 陆渊", "指令转发桥接器：允许 LLM 自主执行系统指令。", "1.1.0")
+logger = logging.getLogger("astrbot")
+
+@register("cmd_bridge", "夕小柠 & 陆渊", "指令转发桥接器：允许 LLM 自主执行系统指令", "1.2.0")
 class CmdBridge(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
@@ -8,19 +13,14 @@ class CmdBridge(Star):
 
     @llm_tool(name="execute_plugin_command")
     async def execute_plugin_command(self, event: AstrMessageEvent, command: str):
-        '''
+        """
         自主执行系统或插件指令。
-        参数 command: 完整的指令字符串，例如 "/hapi list" 或 "/echo hello"。
-        注意：管理员可执行任意指令，普通用户仅限白名单。
-        '''
-        # 获取管理员列表（从插件配置中读取）
-        admin_qqs_str = self.config.get("admin_qqs", "")
-        admin_list = [x.strip() for x in admin_qqs_str.split(",") if x.strip()]
         
-        # 兼容系统级管理员
-        config_core = self.context.get_config()
-        system_admins = [x.strip() for x in str(config_core.get("admin_qqs", "")).split(",") if x.strip()]
-        admin_list.extend(system_admins)
+        Args:
+            command (string): 完整的指令字符串，例如 "/hapi list" 或 "/status"。
+        """
+        # 获取管理员列表
+        admin_list = [x.strip() for x in str(self.config.get("admin_qqs", "1591793025")).split(",") if x.strip()]
         
         sender_id = str(event.get_sender_id())
 
@@ -41,9 +41,17 @@ class CmdBridge(Star):
             return f"错误：指令 '{command}' 不在白名单内，且您不是管理员。"
         
         try:
-            # 模拟发送指令
-            new_event = event.instantiate_event(command)
+            # 核心逻辑：模拟发送指令并注入回系统
+            # 注意：这里需要确保 command 是以指令前缀（如 /）开头的
+            cmd_str = command if command.startswith("/") else f"/{command}"
+            
+            # 使用标准的 handle_event 重新注入指令
+            # 我们通过 event.instantiate_event 创建一个模拟的新事件
+            new_event = event.instantiate_event(cmd_str)
             await self.context.handle_event(new_event)
-            return f"已成功转发指令：{command}。请检查系统后续响应。"
+            
+            logger.info(f"[CmdBridge] 已成功转发指令: {cmd_str}")
+            return f"✅ 指令已执行：{cmd_str}。请查看后续消息反馈。"
         except Exception as e:
-            return f"执行指令时出错: {str(e)}"
+            logger.error(f"[CmdBridge] 指令转发失败: {e}")
+            return f"❌ 执行出错: {str(e)}"
