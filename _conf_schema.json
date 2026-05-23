@@ -1,0 +1,14 @@
+{
+  "admin_qqs": {
+    "description": "插件管理员 QQ 列表（半角逗号分隔）",
+    "type": "string",
+    "default": "",
+    "hint": "填入后，这些用户可以执行任何指令，不受白名单限制。"
+  },
+  "allowed_prefixes": {
+    "description": "允许普通用户触发的指令前缀列表（半角逗号分隔）",
+    "type": "string",
+    "default": "/hapi, /echo, /status",
+    "hint": "例如填入 /hapi, 则 LLM 可以代发所有以 /hapi 开头的指令。"
+  }
+}
